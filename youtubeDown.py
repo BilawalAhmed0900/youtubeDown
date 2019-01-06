@@ -147,8 +147,9 @@ class YT:
                 name = name + "_video." + ext
         name = valid_filename(name)
 
+        r = requests.get(url, stream=True)
         start_time = datetime.now()
-        total_size = int(requests.head(url).headers["content-length"])
+        total_size = int(r.headers["Content-length"])
         if os.path.isfile(name):
             if os.stat(name).st_size == total_size:
                 print(f"[{id}] Already downloaded", end="")
@@ -159,7 +160,6 @@ class YT:
             return name
         downloaded = 0
 
-        r = requests.get(url, stream=True)
         with open(name, "wb") as file:
             for chunk in r.iter_content(chunk_size=4 * 1024):
                 if chunk:
