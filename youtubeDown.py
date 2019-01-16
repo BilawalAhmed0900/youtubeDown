@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime
 import enum
 import json
@@ -5,7 +6,6 @@ import os
 import os.path
 import requests
 import string
-import sys
 
 
 class YT_Parameter(enum.IntEnum):
@@ -40,9 +40,9 @@ def callback(dictionery: dict):
     total = int(dictionery["total"])
     speed = int(dictionery["avg_speed"])
     print(" " * 80, end="\r")
-    print("{id} Downloading: "
-          "{downloaded}/{total}"
-          "{speed}/s)".format(
+    print("[{id}] Downloading: "
+          "{downloaded}/{total} "
+          "({speed}/s)".format(
               id=id, downloaded=integer_to_bkbmb(downloaded),
               total=integer_to_bkbmb(total), speed=integer_to_bkbmb(speed)
           ), end="\r")
@@ -51,6 +51,17 @@ def callback(dictionery: dict):
 def valid_filename(string_to: str) -> str:
     valid_chars = "-_.() {}{}".format(string.ascii_letters, string.digits)
     return "".join(c for c in string_to if c in valid_chars)
+
+
+def argparse_to_YT_Parameter(namespace):
+    if namespace.audio:
+        param = YT_Parameter.AUDIO
+    elif namespace.video:
+        param = YT_Parameter.VIDEO
+    elif namespace.both:
+        param = YT_Parameter.BOTH
+    result = argparse.Namespace(param=param, URL=namespace.URL)
+    return result
 
 
 class YT:
@@ -154,11 +165,11 @@ class YT:
         total_size = int(r.headers["Content-length"])
         if os.path.isfile(name):
             if os.stat(name).st_size == total_size:
-                print("{id} Already downloaded".format(id=id), end="")
+                print("[{id}] Already downloaded".format(id=id), end="")
                 return name
 
         if os.path.isfile(just_name + ".mkv"):
-            print("{id} Already downloaded".format(id=id), end="")
+            print("[{id}] Already downloaded".format(id=id), end="")
             return name
         downloaded = 0
 
@@ -210,7 +221,7 @@ class YT:
             if os.path.isfile("ffmpeg.exe"):
                 if os.path.isfile(video_name) and os.path.isfile(audio_name):
                     id = video_detail["videoId"]
-                    print("{id} Combining".format(id=id))
+                    print("[{id}] Combining".format(id=id))
                     full_name =\
                         video_name[: video_name.rfind("_video")] + ".mkv"
 
@@ -227,31 +238,23 @@ class YT:
 
 
 def main():
-    param = None
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-a", "--audio", action="store_true",
+                       help="Download audio only")
+    group.add_argument("-v", "--video", action="store_true",
+                       help="Download video only")
+    group.add_argument("-b", "--both", action="store_true",
+                       help="Download video with audio")
+    parser.add_argument("URL", nargs="+")
 
-    parsed_argv = []
-    for index, argv in enumerate(sys.argv):
-        if index == 0:
-            continue
-        if argv == "-a":
-            param = YT_Parameter.AUDIO
-        elif argv == "-v":
-            param = YT_Parameter.VIDEO
-        elif argv == "-b":
-            param = YT_Parameter.BOTH
-        else:
-            parsed_argv.append(argv)
-
-    if param is None:
-        print("Either -a(Audio), -v(Video) or -b(Both) is required...")
-    else:
-        for argv in parsed_argv:
-            try:
-                yt = YT(argv, param)
-                yt.download(callback)
-            except KeyboardInterrupt:
-                print("Ctrl-C detected, quitting")
-                pass
+    args = argparse_to_YT_Parameter(parser.parse_args())
+    for link in args.URL:
+        try:
+            yt = YT(link, args.param)
+            yt.download(callback)
+        except KeyboardInterrupt:
+            print("Ctrl-C detected, quiting                                  ")
 
 
 if __name__ == "__main__":
