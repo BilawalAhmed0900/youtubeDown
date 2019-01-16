@@ -40,10 +40,12 @@ def callback(dictionery: dict):
     total = int(dictionery["total"])
     speed = int(dictionery["avg_speed"])
     print(" " * 80, end="\r")
-    print(f"[{id}] Downloading: "
-          f"{integer_to_bkbmb(downloaded)}/{integer_to_bkbmb(total)} "
-          f"({integer_to_bkbmb(speed)}/s)",
-          end="\r")
+    print("{id} Downloading: "
+          "{downloaded}/{total}"
+          "{speed}/s)".format(
+              id=id, downloaded=integer_to_bkbmb(downloaded),
+              total=integer_to_bkbmb(total), speed=integer_to_bkbmb(speed)
+          ), end="\r")
 
 
 def valid_filename(string_to: str) -> str:
@@ -105,10 +107,10 @@ class YT:
     @staticmethod
     def get_highest_bitrate(jsons: list, parameter: YT_Parameter,
                             width: int = 0) -> (int, int):
-        audio_find = parameter == YT_Parameter.AUDIO or\
-            parameter == YT_Parameter.BOTH
-        video_find = parameter == YT_Parameter.VIDEO or\
-            parameter == YT_Parameter.BOTH
+        audio_find = (parameter == YT_Parameter.AUDIO
+                      or parameter == YT_Parameter.BOTH)
+        video_find = (parameter == YT_Parameter.VIDEO
+                      or parameter == YT_Parameter.BOTH)
 
         highest_bitrate_audio = -1
         highest_bitrate_video = -1
@@ -133,7 +135,8 @@ class YT:
     def download_internal(detail: dict, json: dict,
                           called_function=None):
         id = detail["videoId"]
-        just_name = detail["title"]
+        just_name = "{name}-{id}".format(name=detail["title"],
+                                         id=detail["videoId"])
         name = just_name
         url = json["url"]
 
@@ -145,23 +148,23 @@ class YT:
                 name = name + "_audio." + ext
             else:
                 name = name + "_video." + ext
-        name = valid_filename(name)
+        name = valid_filename(name).strip()
 
         r = requests.get(url, stream=True)
-        start_time = datetime.now()
         total_size = int(r.headers["Content-length"])
         if os.path.isfile(name):
             if os.stat(name).st_size == total_size:
-                print(f"[{id}] Already downloaded", end="")
+                print("{id} Already downloaded".format(id=id), end="")
                 return name
 
         if os.path.isfile(just_name + ".mkv"):
-            print(f"[{id}] Already downloaded", end="")
+            print("{id} Already downloaded".format(id=id), end="")
             return name
         downloaded = 0
 
+        start_time = datetime.now()
         with open(name, "wb") as file:
-            for chunk in r.iter_content(chunk_size=4 * 1024):
+            for chunk in r.iter_content(chunk_size=1024):
                 if chunk:
                     file.write(chunk)
                     if called_function is not None:
@@ -207,13 +210,16 @@ class YT:
             if os.path.isfile("ffmpeg.exe"):
                 if os.path.isfile(video_name) and os.path.isfile(audio_name):
                     id = video_detail["videoId"]
-                    print(f"[{id}] Combining")
+                    print("{id} Combining".format(id=id))
                     full_name =\
                         video_name[: video_name.rfind("_video")] + ".mkv"
 
-                    os.system(f"ffmpeg -i \"{video_name}\" -i \"{audio_name}\""
-                              f" -c:v copy -c:a copy -y \"{full_name}\""
-                              f" >nul 2>&1")
+                    os.system("ffmpeg -i \"{video_name}\" -i \"{audio_name}\""
+                              " -c:v copy -c:a copy -y \"{full_name}\""
+                              " >nul 2>&1".format(
+                                  video_name=video_name, audio_name=audio_name,
+                                  full_name=full_name
+                              ))
                     os.remove(video_name)
                     os.remove(audio_name)
             else:
