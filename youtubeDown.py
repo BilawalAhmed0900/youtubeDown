@@ -69,6 +69,27 @@ class YT:
         self.link = link_str
         self.parameter = parameter
         self.session = requests.Session()
+        
+    @staticmethod
+    def get_till_next_pair(string: str, starting_text: str, pair_start: str, pair_end: str):
+        section_start = string.find(starting_text)    
+        section_start += len(starting_text)
+        section_end = section_start
+        
+        level = 0
+        while True:
+            if string[section_end] == pair_start:
+                level += 1
+                
+            if string[section_end] == pair_end:
+                level -= 1
+                
+            if level == 0:
+                break
+
+            section_end += 1
+
+        return string[section_start: section_end + 1]
 
     @staticmethod
     def parse_out(html: str) -> str:
@@ -81,22 +102,8 @@ class YT:
         return parsed
 
     @staticmethod
-    def get_main_section(html: str) -> str:
-        section_start = html.find("\"player_response\"")
-        section_end = html.find(";ytplayer.load", section_start)
-
-        main_section = html[section_start: section_end]
-        return YT.parse_out(main_section)
-
-    @staticmethod
     def get_jsons_string(parsed_str: str) -> str:
-        parsed_main_section = YT.get_main_section(parsed_str)
-        section_start = parsed_main_section.find("\"adaptiveFormats\"")
-        section_start += len("\"adaptiveFormats\":")
-
-        section_end = parsed_main_section.find("]", section_start)
-
-        json_strings = parsed_main_section[section_start: section_end + 1]
+        json_strings = YT.get_till_next_pair(YT.parse_out(parsed_str), "\"adaptiveFormats\":", "[", "]")
         return json_strings
 
     @staticmethod
@@ -106,13 +113,7 @@ class YT:
 
     @staticmethod
     def get_video_detail(html: str) -> dict:
-        parsed_main_section = YT.get_main_section(html)
-        section_start = parsed_main_section.find("\"videoDetails\"")
-        section_start += len("\"videoDetails\":")
-
-        section_end = parsed_main_section.find("},\"playerConfig\"",
-                                               section_start)
-        video_detail_str = parsed_main_section[section_start: section_end + 1]
+        video_detail_str = YT.get_till_next_pair(YT.parse_out(html), "\"videoDetails\":", "{", "}")
         return json.loads(video_detail_str)
 
     @staticmethod
@@ -183,6 +184,8 @@ class YT:
 
                         now_time = datetime.now()
                         delta = (now_time - start_time).total_seconds()
+                        if delta == 0:
+                            continue
                         estimated_time = round(total_size / downloaded * delta)
                         avg_speed = round(downloaded / delta)
 
